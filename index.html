@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>SVM Kernels Tutorial</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 40px; line-height: 1.7; color: #222; }
+    h1, h2, h3 { color: #2c3e50; }
+    pre { background: #f7f7f9; padding: 12px; border-radius: 6px; overflow-x: auto; border: 1px solid #e1e1e8; }
+    img { max-width: 100%; height: auto; margin: 10px 0; border: 1px solid #ddd; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+    header { margin-bottom: 28px; }
+    header p { font-size: 14px; color: #555; margin: 4px 0; }
+    .note { font-size: 13px; color: #666; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Understanding support vector machine kernels</h1>
+    <p><b>Student ID:</b> 24090533</p>
+    <p><b>Module:</b> 7pam2021-0901-2025 – Machine Learning and Neural Network</p>
+    <p class="note">Note: The word count target is achieved in the main content sections up to the References heading.</p>
+  </header>
+
+  <h2>Introduction</h2>
+  <p>Support Vector Machines (SVMs) are a cornerstone method in supervised learning, known for strong generalization and clear geometric intuition. At their core, SVMs aim to separate classes by finding a decision boundary that maximizes the margin, the distance between the boundary and the nearest data points (support vectors). This margin maximization tends to reduce overfitting, providing robust performance even when features are numerous or noisy. Yet, many realistic problems are not linearly separable. Data may be intertwined, clustered, or defined by curved manifolds where no straight line or plane is sufficient.</p>
+  <p>This is where kernels matter. A kernel function lets an SVM operate in an implicit, higher-dimensional feature space without explicitly computing the mapping. The result is elegant: we keep the efficient optimization but unlock non-linear decision boundaries. In practice, three kernels are commonly used. The linear kernel is fast and reliable when a straight boundary suffices. The polynomial kernel introduces curved decision surfaces, tunable by degree. The radial basis function (RBF) kernel produces flexible, locally adaptive boundaries that often perform well out of the box. Choosing among these depends on data shape, dimensionality, noise, and the trade-off between bias and variance.</p>
+  <p>This tutorial explains how kernel choice affects behavior and results, demonstrates code using scikit-learn, and visualizes decision boundaries on two synthetic datasets: moons and circles. It also covers practical guidance for preprocessing, hyperparameter tuning, and evaluation, along with common pitfalls and ethical considerations. By the end, you should understand when to use each kernel, how to tune it, and what patterns to look for in your plots and metrics.</p>
+
+  <h2>Kernel theory and intuition</h2>
+  <p>To understand kernels, recall the linear SVM objective: find a hyperplane that separates classes with maximal margin. When this separation is not possible in the input space, we can map the data into a higher-dimensional feature space where separation may exist. Kernels compute inner products in that feature space directly, enabling the so-called “kernel trick.” Rather than building explicit transformed features, we use a function \(K(x_i, x_j)\) that measures similarity and drives the optimization.</p>
+  <p><b>Linear kernel:</b> The linear kernel uses the standard dot product. It produces straight boundaries and is appropriate when classes are separable by a plane or when you want interpretability akin to a linear classifier. It is efficient in high dimensions, common in text classification where sparse feature vectors make linear boundaries surprisingly effective.</p>
+  <p><b>Polynomial kernel:</b> The polynomial kernel expands the feature space via polynomial terms. Its degree parameter controls curvature: degree 2 yields quadratic boundaries; higher degrees produce more complex surfaces. It captures feature interactions naturally but can overfit if degree is set too high or if regularization is weak. Polynomial kernels can work well when relationships are smooth and global rather than highly localized.</p>
+  <p><b>RBF kernel:</b> The RBF kernel measures Gaussian similarity, effectively comparing the distance between points and weighting influence locally. It adapts the boundary to local structure: clusters, rings, or intertwined curves. Two parameters dominate behavior: \(C\), which controls margin hardness and the penalty for misclassification, and \(\gamma\), which controls how far each point’s influence reaches. Small \(\gamma\) values yield smoother, broader decision regions; large \(\gamma\) can lead to very fine boundaries and potential overfitting.</p>
+  <p>These kernels embody different assumptions about data geometry. Linear assumes global linearity. Polynomial assumes global smooth curvature with controlled complexity. RBF assumes locally defined structure and is often a reliable default when the data shape is unknown or clearly non-linear.</p>
+
+  <h2>Practical workflow and preprocessing</h2>
+  <p>Successful SVM training depends on consistent preprocessing and disciplined validation. Features should be scaled, typically to zero mean and unit variance, because SVMs are distance-based. Unscaled features may cause some dimensions to dominate, skewing similarity measures. Pipelines in scikit-learn simplify this process by chaining scaling and model training so that cross-validation evaluates the whole process correctly.</p>
+  <ul>
+    <li><b>Feature scaling:</b> Use StandardScaler in a pipeline to standardize features. This stabilizes optimization and makes kernel distances meaningful.</li>
+    <li><b>Train/validation split:</b> Reserve a validation set or use cross-validation. This prevents optimistic estimates from training on and evaluating the same data.</li>
+    <li><b>Hyperparameters:</b> Tune \(C\) and kernel-specific parameters such as \(\gamma\) (RBF) and degree (polynomial). Grid search or randomized search paired with cross-validation provides robust estimates.</li>
+    <li><b>Class imbalance:</b> If one class is rare, consider class weights or resampling. SVMs can use a class_weight parameter to mitigate imbalance.</li>
+    <li><b>Noise and outliers:</b> Expect noisy data to reduce margins. Softer margins (moderate \(C\)) and careful feature engineering often help.</li>
+  </ul>
+  <p>In practice, begin with RBF and a pipeline that scales features. Evaluate with cross-validation, then adjust \(C\) and \(\gamma\). If performance stalls or the decision boundary looks too jagged, reduce \(\gamma\) or \(C\). If the boundary looks overly smooth and misclassifies clusters, increase \(\gamma\) or \(C\). For inherently linear problems, switch to the linear kernel for faster training and simpler decision surfaces. For data that shows global curved trends, try a modest polynomial degree like 2 or 3 and validate carefully.</p>
+
+  <h2>Code demonstration (scikit-learn)</h2>
+  <p>The snippet below shows the skeleton used in the accompanying notebook. It generates the moons dataset, scales features, fits an RBF SVM, and prepares for plotting. The full notebook produces decision boundaries for all kernels on both datasets and prints accuracy for quick feedback.</p>
+  <pre><code>from sklearn.datasets import make_moons, make_circles
+from sklearn.svm import SVC
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+
+X, y = make_moons(n_samples=200, noise=0.15, random_state=0)
+clf = make_pipeline(StandardScaler(), SVC(kernel='rbf', C=1.0))
+clf.fit(X, y)</code></pre>
+  <p>StandardScaler operates within the pipeline, ensuring that scaling parameters are learned from the training data and applied consistently. SVC accepts kernel arguments: 'linear', 'poly', and 'rbf'. For polynomial kernels, the degree parameter sets complexity; for RBF, \(\gamma\) defines locality. The notebook saves six PNG files referencing boundaries for each kernel on moons and circles. Place these images in the same folder as this HTML page to render them correctly.</p>
+
+  <h2>Results: decision boundaries on synthetic data</h2>
+  <p>The moons dataset has two interleaving half-moons, a classic non-linear pattern. The circles dataset has concentric rings, which a linear boundary cannot separate. These controlled cases reveal how kernels behave and where they excel or struggle. Explore the plots and compare across kernels to understand the geometry.</p>
+
+  <h3>Moons dataset</h3>
+  <div class="grid">
+    <div><img src="moons_linear_boundary.png" alt="Moons dataset with linear kernel boundary"></div>
+    <div><img src="moons_poly_boundary.png" alt="Moons dataset with polynomial kernel boundary"></div>
+    <div><img src="moons_rbf_boundary.png" alt="Moons dataset with RBF kernel boundary"></div>
+  </div>
+  <p><b>Linear kernel on moons:</b> The boundary is straight or nearly so, cutting through the curved structures. Misclassifications cluster in the interleaving regions where classes overlap under a linear projection. Accuracy may be moderate but rarely optimal for this shape.</p>
+  <p><b>Polynomial kernel on moons:</b> With degree 3, boundaries bend to follow the arcs, often improving classification. If the degree is too high, boundaries can become overly complex and sensitive to noise, increasing variance and risking overfitting.</p>
+  <p><b>RBF kernel on moons:</b> The boundary adapts locally, wrapping around clusters smoothly. With appropriate \(\gamma\), it balances fit and generalization, achieving strong performance without extreme complexity. Overly large \(\gamma\) values may produce jagged boundaries that fit idiosyncrasies rather than structure.</p>
+
+  <h3>Circles dataset</h3>
+  <div class="grid">
+    <div><img src="circles_linear_boundary.png" alt="Circles dataset with linear kernel boundary"></div>
+    <div><img src="circles_poly_boundary.png" alt="Circles dataset with polynomial kernel boundary"></div>
+    <div><img src="circles_rbf_boundary.png" alt="Circles dataset with RBF kernel boundary"></div>
+  </div>
+  <p><b>Linear kernel on circles:</b> Separation is impossible with a single line; expect poor accuracy and many errors near the inner ring. This plot illustrates why linear models fail when geometry is inherently circular or radial.</p>
+  <p><b>Polynomial kernel on circles:</b> Quadratic and cubic boundaries can encircle regions, drastically improving classification. As degree increases, the boundary can overreact to noise, so validation is crucial. A modest degree is often sufficient.</p>
+  <p><b>RBF kernel on circles:</b> RBF naturally encodes radial similarity, producing smooth boundaries that can cleanly separate concentric structures. Proper tuning of \(\gamma\) prevents underfitting (excessively broad boundary) or overfitting (too tight and jagged).</p>
+
+  <h2>Hyperparameter tuning and evaluation</h2>
+  <p>Tuning \(C\), \(\gamma\), and degree is central to SVM success. \(C\) controls the softness of the margin: small \(C\) allows more violations and yields a wider margin, helping generalization but risking underfitting; large \(C\) enforces strict separation, reducing training errors but potentially overfitting. For RBF, \(\gamma\) governs locality: small \(\gamma\) creates smooth, global boundaries; large \(\gamma\) creates very local effects. For polynomial kernels, degree controls the flexibility of the curve and should be kept modest unless data strongly demands complexity.</p>
+  <ul>
+    <li><b>Cross-validation:</b> Use stratified k-fold cross-validation to estimate performance across splits. This stabilizes metrics and reveals sensitivity to hyperparameters.</li>
+    <li><b>Grid or randomized search:</b> Explore parameter grids like \(C \in \{0.1, 1, 10\}\), \(\gamma \in \{0.01, 0.1, 1\}\), degree \(\in \{2, 3, 4\}\). Randomized search covers broad spaces quickly.</li>
+    <li><b>Metrics beyond accuracy:</b> Inspect precision, recall, F1, and confusion matrices to understand error types. Accuracy alone can obscure class imbalance and systematic misclassification.</li>
+    <li><b>Learning curves:</b> Plot performance versus training size. If training scores are high and validation scores low, reduce complexity or regularize more. If both are low, gather more data or engineer features.</li>
+  </ul>
+  <p>Evaluation should also include visual inspection of decision boundaries, as plots provide intuition that metrics may miss. A model with comparable accuracy but smoother, more plausible boundaries often generalizes better. Combine quantitative metrics with qualitative visualization to choose kernels and parameters confidently.</p>
+
+  <h2>Common pitfalls and how to avoid them</h2>
+  <p>SVMs are powerful but sensitive to certain choices. Unscaled features distort distances, undermining kernel similarity and margins. Always use scaling. Overly aggressive \(\gamma\) in RBF can memorize noise; start small and increase cautiously. High-degree polynomials may look impressive on training data but degrade on validation sets. Class imbalance can mislead accuracy; inspect per-class performance and consider class weights. Finally, mixing preprocessing outside a pipeline with cross-validation can leak information; keep scaling inside pipelines so each fold learns scaling only from its training partition.</p>
+  <ul>
+    <li><b>Unscaled features:</b> Always standardize; otherwise, large-magnitude features dominate distance calculations unfairly.</li>
+    <li><b>Overfitting with RBF:</b> Large \(\gamma\) values produce overly complex boundaries. Prefer moderate values validated by cross-validation.</li>
+    <li><b>Polynomial degree too high:</b> Complexity rises fast with degree. Start at 2 or 3 and only increase if validation justifies it.</li>
+    <li><b>Ignoring imbalance:</b> Use class_weight and balanced splits to prevent majority class dominance.</li>
+    <li><b>Leakage in CV:</b> Fit scalers and models inside pipelines to avoid training information leaking into validation folds.</li>
+  </ul>
+
+  <h2>Applications and ethical considerations</h2>
+  <p>SVMs with appropriate kernels power diverse applications. In text classification, linear kernels perform well on sparse, high-dimensional vectors like bag-of-words, providing fast training and competitive accuracy. In image recognition or handwriting classification, RBF kernels capture complex spatial relationships and local patterns. In bioinformatics, polynomial kernels can model gene interactions and non-linear profiles. Finance and healthcare benefit from careful kernel selection to balance sensitivity and robustness in noisy domains.</p>
+  <p>Ethically, model deployment should consider fairness, transparency, and impact. Kernel choices that boost accuracy might still produce disparate error rates across groups if features correlate with sensitive attributes. Regular auditing, bias assessment, and stakeholder consultation are essential. Explainability tools and boundary visualizations can make SVM decisions more transparent, informing responsible use. Ultimately, kernel selection is not only technical but also social: it shapes who benefits from predictions and who bears the cost of errors.</p>
+
+  <h2>Conclusion</h2>
+  <p>Kernel choice is the lever that turns SVMs from linear separators into adaptable, non-linear learners. Linear kernels excel in high-dimensional, linearly separable settings and remain efficient and interpretable. Polynomial kernels introduce controlled curvature, capturing global trends when degree is moderate. RBF kernels provide flexible, locally responsive boundaries that often deliver strong performance across varied data shapes. Paired with scaling, cross-validation, and disciplined tuning of \(C\), \(\gamma\), and degree, SVMs become reliable tools for classification.</p>
+  <p>On synthetic datasets like moons and circles, the plots tell a clear story: linear is limited on curved structures, polynomial helps but needs restraint, and RBF typically balances fit and generalization well. In real projects, begin with RBF and a pipeline, inspect metrics and plots, and iterate. When data is clearly linear or very high-dimensional sparse, switch to linear. When global curvature dominates, consider low-degree polynomial. Combine quantitative evaluation with visual intuition, and keep an eye on fairness and impact. With this workflow, SVM kernels become practical, principled, and effective.</p>
+
+  <h2>References</h2>
+  <ul>
+    <li>Cortes, C., & Vapnik, V. (1995). Support-vector networks. Machine Learning, 20(3), 273–297.</li>
+    <li><a href="https://scikit-learn.org/stable/modules/svm.html">Scikit-learn Documentation: Support Vector Machines</a></li>
+    <li><a href="https://www.geeksforgeeks.org/machine-learning/major-kernel-functions-in-support-vector-machine-svm/">GeeksforGeeks: Major Kernel Functions in SVM</a></li>
+    <li><a href="https://courses.cs.duke.edu/fall21/compsci371d/notes/n_09_Kernels.pdf">Duke University Lecture Notes on Kernels</a></li>
+    <li>Schölkopf, B., & Smola, A. J. (2001). Learning with Kernels. MIT Press.</li>
+    <li><a href="https://www.mdpi.com/2227-7390/12/24/3935">MDPI Mathematics Journal: Exploring Kernel Machines</a></li>
+    <li>Cristianini, N., & Shawe-Taylor, J. (2000). An Introduction to Support Vector Machines. Cambridge University Press.</li>
+    <li>Burges, C. J. C. (1998). A tutorial on support vector machines for pattern recognition. Data Mining and Knowledge Discovery, 2(2), 121–167.</li>
+    <li>Hastie, T., Tibshirani, R., & Friedman, J. (2009). The Elements of Statistical Learning. Springer.</li>
+  </ul>
+</body>
+</html>
